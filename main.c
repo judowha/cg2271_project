@@ -25,6 +25,7 @@
  osSemaphoreId_t mySem;
  osMutexId_t myMutex;
  uint8_t volatile rx_data ;
+ osThreadId_t forward_id, backward_id, left_id, right_id, stop_id;
  
  void initUART2(uint32_t baud_rate)
 {
@@ -145,52 +146,76 @@ void initPWM(void){
 	 //PORTE->ISFR = 0xffffffff;
  }
  
- 	void forward(){
-			TPM1_C0V = 7000;
-			TPM1_C1V = 0;
-			TPM2_C0V = 7000;
-			TPM2_C1V = 0;
+ 	void forward(void* argument){
+			while(1){
+				osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+				TPM1_C0V = 7000;
+				TPM1_C1V = 0;
+				TPM2_C0V = 7000;
+				TPM2_C1V = 0;
+			}
 	}
-	void backward(){
+	void backward(void* argument){
+		while (1){
+			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
 			TPM1_C0V = 0;
 			TPM1_C1V = 7000;
 			TPM2_C0V = 0;
 			TPM2_C1V = 7000;
+		}
 	}
 	
-	void turnRight(){
-		TPM1_C1V = 7000;
-		TPM2_C0V = 7000;
+	void turnRight(void* argument){
+		while (1){
+			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+			TPM1_C0V = 0;
+			TPM1_C1V = 7000;
+			TPM2_C0V = 7000;
+			TPM2_C1V = 0;
+		}
+		
+		
 	}
 	
-	void turnLeft(){
-		TPM1_C0V = 7000;
-		TPM2_C1V = 7000;
+	void turnLeft(void* argument){
+		while (1){
+			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+			TPM1_C0V = 7000;
+			TPM1_C1V = 0;
+			TPM2_C0V = 0;
+			TPM2_C1V = 7000;
+		}
+		
+		
 	}
 	
-	void stop(){
-		TPM1_C0V = 0;
-		TPM1_C1V = 0;
-		TPM2_C0V = 0;
-		TPM2_C1V = 0;
+	void stop(void* argument){
+		while (1){
+			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+			TPM1_C0V = 0;
+			TPM1_C1V = 0;
+			TPM2_C0V = 0;
+			TPM2_C1V = 0;
+		}
+		
 	}
  
  void getMove(void *argument){
 	 	while(1){
 			if(rx_data == 2){
-				forward();
+				osThreadFlagsSet(forward_id,0x0001);
 			}
 			else if (rx_data == 3){
-				backward();
+				osThreadFlagsSet(backward_id,0x0001);
 			}
 			else if (rx_data == 4){
-				turnLeft();
+				osThreadFlagsSet(left_id,0x0001);
 			}
 			else if (rx_data == 5){
-				turnRight();
+				osThreadFlagsSet(right_id,0x0001);
 			}
 			else if (rx_data == 6){
-				stop();
+				osThreadFlagsSet(stop_id,0x0001);
 			}
 		}
 }
@@ -210,7 +235,11 @@ int main (void) {
   osKernelInitialize();                 // Initialize CMSIS-RTOS
 	myMutex = osMutexNew(NULL);
   osThreadNew(getMove, NULL, NULL);    // Create application main thread
-	
+	forward_id = osThreadNew(forward,NULL,NULL);
+	backward_id = osThreadNew(backward,NULL,NULL);
+	left_id = osThreadNew(turnLeft,NULL,NULL);
+	right_id = osThreadNew(turnRight,NULL,NULL);
+	stop_id = osThreadNew(stop,NULL,NULL);
 	
   osKernelStart();                      // Start thread execution
   for (;;) {}
