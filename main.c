@@ -9,9 +9,9 @@
 #define GREEN_LED 19 // PortB Pin 19
 #define BLUE_LED 1 // PortD Pin 1
 #define MOTOR_CONTORL_RIGHT_forward 12 //PortA pin 12 TPM1_CH0
-#define MOTOR_CONTORL_RIGHT_backward 13// PORTA pin 13 TPM1_CH1
+#define MOTOR_CONTORL_RIGHT_backward 4// PORTA pin 4 GPIO
 #define MOTOR_CONTORL_LEFT_forward 1 //PortA pin 1 TPM2_CH0
-#define MOTOR_CONTORL_LEFT_backward 3// PORTB pin 3 TPM2_CH1
+#define MOTOR_CONTORL_LEFT_backward 5// PORTA pin 5 GPIO
 #define LED_ON 'o'
 #define LED_OFF 'i'
 #define MASK(x) (1 << (x))
@@ -70,14 +70,14 @@ void initPWM(void){
 	PORTA->PCR[MOTOR_CONTORL_RIGHT_forward] &= ~PORT_PCR_MUX_MASK;
 	PORTA->PCR[MOTOR_CONTORL_RIGHT_forward] |= PORT_PCR_MUX(3);
 	
-	PORTA->PCR[MOTOR_CONTORL_RIGHT_backward] &= ~PORT_PCR_MUX_MASK;
-	PORTA->PCR[MOTOR_CONTORL_RIGHT_backward] |= PORT_PCR_MUX(3);
+	//PORTA->PCR[MOTOR_CONTORL_RIGHT_backward] &= ~PORT_PCR_MUX_MASK;
+	//PORTA->PCR[MOTOR_CONTORL_RIGHT_backward] |= PORT_PCR_MUX(3);
 	
 	PORTA->PCR[MOTOR_CONTORL_LEFT_forward] &= ~PORT_PCR_MUX_MASK;
 	PORTA->PCR[MOTOR_CONTORL_LEFT_forward] |= PORT_PCR_MUX(3);
 	
-	PORTA->PCR[MOTOR_CONTORL_LEFT_backward] &= ~PORT_PCR_MUX_MASK;
-	PORTA->PCR[MOTOR_CONTORL_LEFT_backward] |= PORT_PCR_MUX(3);
+	//PORTA->PCR[MOTOR_CONTORL_LEFT_backward] &= ~PORT_PCR_MUX_MASK;
+	//PORTA->PCR[MOTOR_CONTORL_LEFT_backward] |= PORT_PCR_MUX(3);
 	
 	SIM->SCGC6 |= SIM_SCGC6_TPM1_MASK;
 	SIM->SCGC6 |= SIM_SCGC6_TPM2_MASK;
@@ -111,7 +111,14 @@ void initPWM(void){
 
 
  void initGPI0(){
-	SIM->SCGC5 |= ((SIM_SCGC5_PORTB_MASK) | (SIM_SCGC5_PORTD_MASK));
+	SIM->SCGC5 |= ((SIM_SCGC5_PORTB_MASK) | (SIM_SCGC5_PORTD_MASK) | (SIM_SCGC5_PORTA_MASK));
+	 
+	PORTA->PCR[MOTOR_CONTORL_RIGHT_backward] &= ~PORT_PCR_MUX_MASK;
+	PORTA->PCR[MOTOR_CONTORL_RIGHT_backward] |= PORT_PCR_MUX(1);
+	 
+	PORTA->PCR[MOTOR_CONTORL_LEFT_backward] &= ~PORT_PCR_MUX_MASK;
+	PORTA->PCR[MOTOR_CONTORL_LEFT_backward] |= PORT_PCR_MUX(1);
+	 
 	// Configure MUX settings to make all 3 pins GPIO
 	PORTB->PCR[RED_LED] &= ~PORT_PCR_MUX_MASK;
 	PORTB->PCR[RED_LED] |= PORT_PCR_MUX(1);
@@ -123,8 +130,12 @@ void initPWM(void){
 	PTB->PDDR |= (MASK(RED_LED) | MASK(GREEN_LED));
 	PTD->PDDR |= MASK(BLUE_LED);
 	 
+	PTA->PDDR |= (MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+	 
 	PTB->PDOR |= MASK(RED_LED) | MASK(GREEN_LED);
   PTD->PDOR |= MASK (BLUE_LED);
+	
+	PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
 	 
  }
  
@@ -147,31 +158,36 @@ void initPWM(void){
  }
  
  	void forward(void* argument){
-			while(1){
+			while (1){
 				osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
 				TPM1_C0V = 7000;
-				TPM1_C1V = 0;
 				TPM2_C0V = 7000;
-				TPM2_C1V = 0;
+				//TPM1_C1V = 0;
+				//TPM2_C1V = 0;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
 			}
+			
 	}
 	void backward(void* argument){
 		while (1){
 			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-			TPM1_C0V = 0;
-			TPM1_C1V = 7000;
-			TPM2_C0V = 0;
-			TPM2_C1V = 7000;
+			TPM1_C0V = 500;
+			//TPM1_C1V = 7000;
+			TPM2_C0V = 500;
+			//TPM2_C1V = 7000;
+			PTA->PDOR |= (MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
 		}
 	}
 	
 	void turnRight(void* argument){
 		while (1){
 			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-			TPM1_C0V = 0;
-			TPM1_C1V = 7000;
+			TPM1_C0V = 500;
+			//TPM1_C1V = 7000;
 			TPM2_C0V = 7000;
-			TPM2_C1V = 0;
+			//TPM2_C1V = 0;
+			PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
+			PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
 		}
 		
 		
@@ -181,28 +197,32 @@ void initPWM(void){
 		while (1){
 			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
 			TPM1_C0V = 7000;
-			TPM1_C1V = 0;
-			TPM2_C0V = 0;
-			TPM2_C1V = 7000;
+			//TPM1_C1V = 0;
+			TPM2_C0V = 500;
+			//TPM2_C1V = 7000;
+			PTA->PDOR &= ~MASK(MOTOR_CONTORL_RIGHT_backward);
+			PTA->PDOR |= MASK(MOTOR_CONTORL_LEFT_backward);
 		}
 		
 		
 	}
 	
 	void stop(void* argument){
-		while (1){
+			while (1){
 			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
 			TPM1_C0V = 0;
-			TPM1_C1V = 0;
+			//TPM1_C1V = 0;
 			TPM2_C0V = 0;
-			TPM2_C1V = 0;
-		}
+			//TPM2_C1V = 0;
+			PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));	
+			}
 		
 	}
  
  void getMove(void *argument){
 	 	while(1){
 			if(rx_data == 2){
+				PTD->PDOR &= ~MASK (BLUE_LED);
 				osThreadFlagsSet(forward_id,0x0001);
 			}
 			else if (rx_data == 3){
@@ -215,6 +235,7 @@ void initPWM(void){
 				osThreadFlagsSet(right_id,0x0001);
 			}
 			else if (rx_data == 6){
+				PTD->PDOR |= MASK (BLUE_LED);
 				osThreadFlagsSet(stop_id,0x0001);
 			}
 		}
