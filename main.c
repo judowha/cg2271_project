@@ -27,7 +27,7 @@
 #define front_blinking_LED 1
 
 //sound
-#define PTD0_Pin 0 //Port A pin 12 TPM1_CH0 for buzzer pin
+#define buzzer 12
 #define DEGREE_CNT 25	//USED?
 #define TO_MOD(x) 375000/(x)	//USED?
 #define DEGREE_B0 31
@@ -194,16 +194,21 @@ int melody[] = {
 	REST,1,	//70
 
 };
+
+int melody2[]={
+	DEGREE_E7,16, DEGREE_DR7,16, DEGREE_E7,16, DEGREE_DR7,16, DEGREE_E7,16, DEGREE_B6,16, DEGREE_D7,16, DEGREE_C7,16, DEGREE_A6,8,
+};
 /*----------------------------------------------------------------------------
  * Application main thread
  *---------------------------------------------------------------------------*/
  
  osSemaphoreId_t mySem;
- osMutexId_t myMutex;
  uint8_t volatile rx_data ;
- osThreadId_t forward_id, backward_id, left_id, right_id, stop_id, rear_LED_moving_id , 
-							rear_LED_stopped_id, front_LED_moving_id, front_LED_stopped_id, 
-							front_LED_blinking_id, running_buzzer_id;
+ osThreadId_t  forward_id, backward_id, left_id, right_id, stop_id,  
+							 LED_moving_id, LED_stopped_id, connect_buzzer_id,
+							front_LED_blinking_id, running_buzzer_id, control_id;
+ int current_note1 = 0;
+ int current_note2 = 0;
 							
 							
 
@@ -254,41 +259,16 @@ void initPWM(void){
 	PORTA->PCR[MOTOR_CONTORL_LEFT_forward] &= ~PORT_PCR_MUX_MASK;
 	PORTA->PCR[MOTOR_CONTORL_LEFT_forward] |= PORT_PCR_MUX(3);
 	
-	//PORTA->PCR[buzzer] &= ~PORT_PCR_MUX_MASK;
-	//PORTA->PCR[buzzer] |= PORT_PCR_MUX(3);
-	
-	
-	SIM->SCGC5 = (SIM_SCGC5_PORTD_MASK);
-// Configure Mode 3 for PWM pin operation
-	PORTD->PCR[PTD0_Pin] &= ~PORT_PCR_MUX_MASK;
-	PORTD->PCR[PTD0_Pin] |= PORT_PCR_MUX(4);
-//PORTD->PCR[PTD1_Pin] &= ~PORT_PCR_MUX_MASK;
-//PORTD->PCR[PTD1_Pin] |= PORT_PCR_MUX(4);
-//Enable clock gating for Timer1
-	SIM->SCGC6 = (SIM_SCGC6_TPM0_MASK);
+	PORTA->PCR[buzzer] &= ~PORT_PCR_MUX_MASK;
+	PORTA->PCR[buzzer] |= PORT_PCR_MUX(3);
 	
 	SIM->SCGC6 |= SIM_SCGC6_TPM1_MASK;
 	SIM->SCGC6 |= SIM_SCGC6_TPM2_MASK;
 	
 	SIM->SOPT2 &= ~SIM_SOPT2_TPMSRC_MASK;
 	SIM->SOPT2 |= SIM_SOPT2_TPMSRC(1);
-
-TPM0->MOD = 7500;
-//Edge-Aligned PWM
-//CMOD - 1 and PS - 111 (128)
-TPM0_SC &= ~((TPM_SC_CMOD_MASK) | (TPM_SC_PS_MASK));
-TPM0_SC |= (TPM_SC_CMOD(1) | TPM_SC_PS(7)); //CMOD = 1 => LPTPM counter increments on every LPTPM
-//counter clock
-TPM0_SC &= ~(TPM_SC_CPWMS_MASK); //count up by default (0)
-//enable PWM on TPM0 channel 0 - PTD0
-TPM0_C0SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) |
-(TPM_CnSC_MSA_MASK));
-TPM0_C0SC |= (TPM_CnSC_ELSB(1) | TPM_CnSC_MSB(1));
-//enable PWM on TPM0 channel 1 - PTD1
-TPM0_C1SC &= ~((TPM_CnSC_ELSB_MASK) | (TPM_CnSC_ELSA_MASK) | (TPM_CnSC_MSB_MASK) |
-(TPM_CnSC_MSA_MASK));
-TPM0_C1SC |= (TPM_CnSC_ELSB(1) | TPM_CnSC_MSB(1));
 	
+
 	TPM1->MOD = 7500;
 	TPM1->SC &= ~( TPM_SC_CMOD_MASK | TPM_SC_PS_MASK);
 	TPM1->SC |= (TPM_SC_CMOD(1)| TPM_SC_PS(7) );
@@ -404,18 +384,17 @@ static void delay100x(volatile uint32_t nof) {
 	}
 }
 void playRunningMusic( void* argument){
-	while(1){
-// sizeof gives the number of bytes, each int value is composed of two bytes (16 bits)
-// there are two values per note (pitch and duration), so for each note there are four bytes
+
+	while(1) {
+	osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
 	int notes = sizeof(melody) / sizeof(melody[0]);
 	// this calculates the duration of a whole note in ms (60s/tempo)*4 beats
-	int wholenote = (60000 * 4) / tempo;
+	int wholenote = (4000 * 4) / tempo;
 	int divider = 0, noteDuration = 0;
 	uint32_t period;
-	while(1) {
-		for(int i = 0; i<notes; i+=2) {
+		if (current_note1 <= notes){
 		// calculates the duration of each note
-		divider = melody[i + 1];
+		divider = melody[current_note1 + 1];
 		if (divider > 0) {
 			// regular note, just proceed
 			noteDuration = (wholenote) / divider;
@@ -424,18 +403,55 @@ void playRunningMusic( void* argument){
 		noteDuration = (wholenote) / (int)fabs((float)divider);
 		noteDuration *= 1.5; // increases the duration in half for dotted notes
 		}
-		period = TO_MOD(melody[i]);
-		TPM0->MOD = period;
-		TPM0_C0V = period / 8; //12.5% duty cycle
-		delay100x(2*9*noteDuration);
-		TPM0->MOD = 0;
-		TPM0_C0V = 0;
-		delay100x(10*noteDuration);
+		period = TO_MOD(melody[current_note1]);
+		TPM1->MOD = period;
+		TPM1_C0V = period / 8; //12.5% duty cycle
+		osDelay(2*9*noteDuration);
+		TPM1->MOD = 0;
+		TPM1_C0V = 0;
+		osDelay(10*noteDuration);
+		current_note1 += 2;
 		}
-	}
+		else current_note1 = 0;
 	}
 
 }
+
+void playConnectMusic( void* argument){
+
+
+	while(1) {
+	osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+	int notes = sizeof(melody2) / sizeof(melody2[0]);
+	// this calculates the duration of a whole note in ms (60s/tempo)*4 beats
+	int wholenote = (4000 * 4) / tempo;
+	int divider = 0, noteDuration = 0;
+	uint32_t period;
+		if (current_note2 <= notes){
+		// calculates the duration of each note
+		divider = melody2[current_note2 + 1];
+		if (divider > 0) {
+			// regular note, just proceed
+			noteDuration = (wholenote) / divider;
+		} else if (divider < 0) {
+		// dotted notes are represented with negative durations!!
+		noteDuration = (wholenote) / (int)fabs((float)divider);
+		noteDuration *= 1.5; // increases the duration in half for dotted notes
+		}
+		period = TO_MOD(melody2[current_note2]);
+		TPM1->MOD = period;
+		TPM1_C0V = period / 8; //12.5% duty cycle
+		osDelay(2*9*noteDuration);
+		TPM1->MOD = 0;
+		TPM1_C0V = 0;
+		osDelay(10*noteDuration);
+		current_note2 += 2;
+		}
+		else current_note2 = 0;
+	}
+
+}
+
  
  	void forward(void* argument){
 			while (1){
@@ -443,9 +459,11 @@ void playRunningMusic( void* argument){
 				TPM2_C1V = 7000;
 				TPM2_C0V = 7000;
 				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+
 			}
 			
 	}
+	
 	void backward(void* argument){
 		while (1){
 			osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
@@ -490,6 +508,101 @@ void playRunningMusic( void* argument){
 	}
 	
 	
+
+
+
+
+void LED_stopped (void *argument) {
+	for(;;) {
+		osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+		PTB->PDOR |= MASK(rear_LED);
+		osDelay(250);
+		PTB->PDOR &= ~MASK(rear_LED);
+		osDelay(250);
+		
+		PTB->PDOR |= (MASK(front_LED5) | MASK(front_LED6) | MASK(front_LED7) | MASK(front_LED8));
+		PTE->PDOR |= (MASK(front_LED1) | MASK(front_LED2) | MASK(front_LED3) | MASK(front_LED4));
+		
+	}
+
+}
+
+void LED_moving (void *argument) {
+	for(;;) {
+	  osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+		
+		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+		
+		PTE->PDOR |= MASK(front_LED1);
+		PTE->PDOR &= (~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+		PTB->PDOR |= MASK(rear_LED);
+		osDelay(500);
+		
+		PTB->PDOR &= ~MASK(rear_LED);
+		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED3) & ~MASK(front_LED4));
+		PTE->PDOR |= MASK(front_LED2);
+		osDelay(500);
+		
+		PTB->PDOR |= MASK(rear_LED);
+		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED4));
+		PTE->PDOR |= MASK(front_LED3) ;
+		osDelay(500);
+		
+		PTB->PDOR &= ~MASK(rear_LED);
+		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) );
+		PTE->PDOR |= MASK(front_LED4);
+		osDelay(500);
+		
+		
+		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+		PTB->PDOR &= ( ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+		PTB->PDOR |= MASK(front_LED5);
+		PTB->PDOR |= MASK(rear_LED);
+		osDelay(500);
+		PTB->PDOR &= ~MASK(rear_LED);
+		
+		PTB->PDOR &= (~MASK(front_LED5)  & ~MASK(front_LED7) & ~MASK(front_LED8));
+		PTB->PDOR |= MASK(front_LED6);
+		
+		osDelay(500);
+		PTB->PDOR |= MASK(rear_LED);
+		
+		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6)  & ~MASK(front_LED8));
+		PTB->PDOR |= MASK(front_LED7);
+		PTB->PDOR |= MASK(rear_LED);
+		osDelay(500);
+		PTB->PDOR &= ~MASK(rear_LED);
+		
+		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) );
+		PTB->PDOR |=  MASK(front_LED8);
+		osDelay(500);
+
+
+	}
+
+}
+
+
+
+
+
+void front_LED_blinking(void *argument) {
+	for(;;) {
+		
+	osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+		
+		PTB->PDOR &= ~(MASK(front_LED5) | MASK(front_LED6) | MASK(front_LED7) | MASK(front_LED8));
+		PTE->PDOR &= ~(MASK(front_LED1) | MASK(front_LED2) | MASK(front_LED3) | MASK(front_LED4));
+		
+		PTC->PDOR |= MASK(front_blinking_LED);
+		osDelay(500);
+		PTC->PDOR &= ~MASK(front_blinking_LED);
+		osDelay(500);
+		
+	}
+}
+
  void led_off (void) {
 	PTB->PDOR &= ~MASK(rear_LED);
 	
@@ -506,143 +619,45 @@ void playRunningMusic( void* argument){
 	PTB->PDOR &= ~MASK(front_LED8);
 }
 
-
-void rear_LED_moving (void *argument) {
-	for(;;) {
-	  osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-		
-		PTB->PDOR |= MASK(rear_LED);
-		osDelay(500);
-		PTB->PDOR &= ~MASK(rear_LED);
-		osDelay(500);
-		
-	}
-
-}
-
-void rear_LED_stopped (void *argument) {
-	for(;;) {
-		osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-		led_off();
-		PTB->PDOR |= MASK(rear_LED);
-		osDelay(250);
-		PTB->PDOR &= ~MASK(rear_LED);
-		osDelay(250);
-		
-	}
-
-}
-
-void front_LED_moving (void *argument) {
-	for(;;) {
-	  osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-		
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
-		
-		PTE->PDOR |= MASK(front_LED1);
-		PTE->PDOR &= (~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		osDelay(500);
-		
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTE->PDOR |= MASK(front_LED2);
-		osDelay(500);
-		
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED4));
-		PTE->PDOR |= MASK(front_LED3) ;
-		osDelay(500);
-
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) );
-		PTE->PDOR |= MASK(front_LED4);
-		osDelay(500);
-		
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTB->PDOR &= ( ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
-		PTB->PDOR |= MASK(front_LED5);
-		osDelay(500);
-		
-		PTB->PDOR &= (~MASK(front_LED5)  & ~MASK(front_LED7) & ~MASK(front_LED8));
-		PTB->PDOR |= MASK(front_LED6);
-		osDelay(500);
-		
-		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6)  & ~MASK(front_LED8));
-		PTB->PDOR |= MASK(front_LED7);
-		osDelay(500);
-		
-		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) );
-		PTB->PDOR |=  MASK(front_LED8);
-		osDelay(500);
-
-	}
-
-}
-
-void front_LED_stopped (void *argument) {
-	for(;;) {
-	  osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-		
-		PTB->PDOR |= (MASK(front_LED5) | MASK(front_LED6) | MASK(front_LED7) | MASK(front_LED8));
-		PTE->PDOR |= (MASK(front_LED1) | MASK(front_LED2) | MASK(front_LED3) | MASK(front_LED4));
-		
-
-	}
-
-}
-
-
-
-void front_LED_blinking(void *argument) {
-	for(;;) {
-		
-	  osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-		
-		PTB->PDOR &= ~(MASK(front_LED5) | MASK(front_LED6) | MASK(front_LED7) | MASK(front_LED8));
-		PTE->PDOR &= ~(MASK(front_LED1) | MASK(front_LED2) | MASK(front_LED3) | MASK(front_LED4));
-		
-		PTC->PDOR |= MASK(front_blinking_LED);
-		osDelay(500);
-		PTC->PDOR &= ~MASK(front_blinking_LED);
-		osDelay(500);
-		
-	}
-}
-
  void getMove(void *argument){
-	 	while(1){
+	 	for(;;){
+			
 			if (rx_data == 1){
-				osThreadFlagsSet(front_LED_blinking_id,0x0001);			
+				
+				osThreadFlagsSet(front_LED_blinking_id,0x0001);
+				osThreadFlagsSet(connect_buzzer_id,0x0001);
 			}
 			if(rx_data == 2){
+				
 				//PTD->PDOR &= ~MASK (BLUE_LED);
 				osThreadFlagsSet(forward_id,0x0001);
-				osThreadFlagsSet(front_LED_moving_id,0x0001);
-				osThreadFlagsSet(rear_LED_moving_id,0x0001);
+				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 3){
 				osThreadFlagsSet(backward_id,0x0001);
-				osThreadFlagsSet(front_LED_moving_id,0x0001);
-				osThreadFlagsSet(rear_LED_moving_id,0x0001);
+				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 4){
 				osThreadFlagsSet(left_id,0x0001);
-				osThreadFlagsSet(front_LED_moving_id,0x0001);
-				osThreadFlagsSet(rear_LED_moving_id,0x0001);
+				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 5){
 				osThreadFlagsSet(right_id,0x0001);
-				osThreadFlagsSet(front_LED_moving_id,0x0001);
-				osThreadFlagsSet(rear_LED_moving_id,0x0001);
+				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 6){
 				//PTD->PDOR |= MASK (BLUE_LED);
 				osThreadFlagsSet(stop_id,0x0001);
-				osThreadFlagsSet(front_LED_stopped_id,0x0001);
-				osThreadFlagsSet(rear_LED_stopped_id,0x0001);
+				osThreadFlagsSet(LED_stopped_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
+			}
+			else if (rx_data == 7){
+				osThreadFlagsSet(stop_id,0x0001);
+				led_off();
 			}
 		}
 }
@@ -660,20 +675,18 @@ int main (void) {
 	led_off();
  
   osKernelInitialize();                 // Initialize CMSIS-RTOS
-	//myMutex = osMutexNew(NULL);
-  osThreadNew(getMove, NULL, NULL);    // Create application main thread
+	front_LED_blinking_id = osThreadNew(front_LED_blinking, NULL, NULL);
+  control_id = osThreadNew(getMove, NULL, NULL);   
 	forward_id = osThreadNew(forward,NULL,NULL);
 	backward_id = osThreadNew(backward,NULL,NULL);
 	left_id = osThreadNew(turnLeft,NULL,NULL);
 	right_id = osThreadNew(turnRight,NULL,NULL);
 	stop_id = osThreadNew(stop,NULL,NULL);
 	
-	rear_LED_moving_id = osThreadNew(rear_LED_moving, NULL, NULL);
-  rear_LED_stopped_id = osThreadNew(rear_LED_stopped, NULL, NULL);
-  front_LED_moving_id = osThreadNew(front_LED_moving, NULL, NULL);
-  front_LED_stopped_id = osThreadNew(front_LED_stopped, NULL, NULL);
-	front_LED_blinking_id = osThreadNew(front_LED_blinking, NULL, NULL);
+  LED_stopped_id = osThreadNew(LED_stopped, NULL, NULL);
+  LED_moving_id = osThreadNew(LED_moving, NULL, NULL);
 	running_buzzer_id = osThreadNew(playRunningMusic,NULL, NULL);
+	connect_buzzer_id = osThreadNew(playConnectMusic,NULL, NULL);
 	
   osKernelStart();                      // Start thread execution
   for (;;) {}
