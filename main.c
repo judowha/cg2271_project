@@ -198,6 +198,75 @@ int melody[] = {
 int melody2[]={
 	DEGREE_E7,16, DEGREE_DR7,16, DEGREE_E7,16, DEGREE_DR7,16, DEGREE_E7,16, DEGREE_B6,16, DEGREE_D7,16, DEGREE_C7,16, DEGREE_A6,8,
 };
+
+int melody3[]={
+	DEGREE_A5,8, DEGREE_B5,8,	//L1 1
+	DEGREE_C6,-4, DEGREE_B5,8, DEGREE_C6,4, DEGREE_E6,4,	//2
+	DEGREE_B5,-2, DEGREE_E5,4,	//3
+	DEGREE_A5,-4, DEGREE_G5,8, DEGREE_A5,4, DEGREE_C6,4,	//4
+	DEGREE_G5,-2, DEGREE_E5,4,	//5
+	DEGREE_F5,-4, DEGREE_E5,8, DEGREE_F5,8, DEGREE_C6,-4,	//6
+	DEGREE_E5,-2, DEGREE_C6,4,	//L2 7
+	DEGREE_B5,-4, DEGREE_FR5,8, DEGREE_FR5,4, DEGREE_B5,4,	//8
+	DEGREE_B5,2, REST,4, DEGREE_A5,8, DEGREE_B5,8,	//9
+	DEGREE_C6,-4, DEGREE_C5,8, DEGREE_C6,4, DEGREE_E6,8,	//10
+	DEGREE_B5,-2, DEGREE_E5,8, DEGREE_E5,8,	//11
+	DEGREE_A5,-4, DEGREE_G5,8, DEGREE_A5,4, DEGREE_C6,4,	//L3 12
+	DEGREE_G5,-2, DEGREE_E5,4,	//13
+	DEGREE_F5,4, DEGREE_C6,8, DEGREE_B5,-4, DEGREE_C6,4,	//14
+	DEGREE_D6,4, DEGREE_E6,8, DEGREE_C6,2, REST,8,	//15
+	DEGREE_C6,8, DEGREE_B5,8, DEGREE_A5,4, DEGREE_B5,4, DEGREE_GR5,4,	//16
+	DEGREE_A5,2, REST,4, DEGREE_C6,8, DEGREE_D6,8,	//L4 17
+	DEGREE_E6,-4, DEGREE_C6,6, DEGREE_D6,6, DEGREE_E6,6,	//18
+	DEGREE_D6,-2, DEGREE_G5,4,	//19
+	DEGREE_D6,16, DEGREE_C6,16, DEGREE_B5,16, DEGREE_C6,-4, DEGREE_D6,4, DEGREE_E6,8,	//20
+	DEGREE_E6,1,	//L5 21
+	DEGREE_A5,8, DEGREE_B5,8, DEGREE_C6,4, DEGREE_B5,8, DEGREE_C6,8, DEGREE_D6,4,	//22
+	DEGREE_C6,-4, DEGREE_G5,8, DEGREE_G5,2,	//23
+	DEGREE_F6,4, DEGREE_E6,4, DEGREE_D6,4, DEGREE_C6,4,	//24
+	DEGREE_E6,-2, DEGREE_A5,8, DEGREE_B5,8,	//25
+	DEGREE_C6,-4, DEGREE_B5,8, DEGREE_C6,4, DEGREE_E6,4,	//26
+	DEGREE_B5,-2, DEGREE_E5,4,	//L6 27
+	DEGREE_A5,-4, DEGREE_G5,8, DEGREE_A5,4, DEGREE_C6,4,	//28
+	DEGREE_G5,-2, DEGREE_E5,4,	//29
+	DEGREE_F4,4, DEGREE_C6,8, DEGREE_B5,-4, DEGREE_C6,4,	//30
+	DEGREE_D6,4, DEGREE_E6,8, DEGREE_C6,2,	//31
+	DEGREE_C6,8, DEGREE_B5,8, DEGREE_A5,4, DEGREE_B5,4, DEGREE_GR5,4,	//32
+	//Repeat once
+	DEGREE_A5,8, DEGREE_B5,8,	//L1 1
+	DEGREE_C6,-4, DEGREE_B5,8, DEGREE_C6,4, DEGREE_E6,4,	//2
+	DEGREE_B5,-2, DEGREE_E5,4,	//3
+	DEGREE_A5,-4, DEGREE_G5,8, DEGREE_A5,4, DEGREE_C6,4,	//4
+	DEGREE_G5,-2, DEGREE_E5,4,	//5
+	DEGREE_F5,-4, DEGREE_E5,8, DEGREE_F5,8, DEGREE_C6,-4,	//6
+	DEGREE_E5,-2, DEGREE_C6,4,	//L2 7
+	DEGREE_B5,-4, DEGREE_FR5,8, DEGREE_FR5,4, DEGREE_B5,4,	//8
+	DEGREE_B5,2, REST,4, DEGREE_A5,8, DEGREE_B5,8,	//9
+	DEGREE_C6,-4, DEGREE_C5,8, DEGREE_C6,4, DEGREE_E6,8,	//10
+	DEGREE_B5,-2, DEGREE_E5,8, DEGREE_E5,8,	//11
+	DEGREE_A5,-4, DEGREE_G5,8, DEGREE_A5,4, DEGREE_C6,4,	//L3 12
+	DEGREE_G5,-2, DEGREE_E5,4,	//13
+	DEGREE_F5,4, DEGREE_C6,8, DEGREE_B5,-4, DEGREE_C6,4,	//14
+	DEGREE_D6,4, DEGREE_E6,8, DEGREE_C6,2, REST,8,	//15
+	DEGREE_C6,8, DEGREE_B5,8, DEGREE_A5,4, DEGREE_B5,4, DEGREE_GR5,4,	//16
+	DEGREE_A5,2, REST,4, DEGREE_C6,8, DEGREE_D6,8,	//L4 17
+	DEGREE_E6,-4, DEGREE_C6,6, DEGREE_D6,6, DEGREE_E6,6,	//18
+	DEGREE_D6,-2, DEGREE_G5,4,	//19
+	DEGREE_D6,16, DEGREE_C6,16, DEGREE_B5,16, DEGREE_C6,-4, DEGREE_D6,4, DEGREE_E6,8,	//20
+	DEGREE_E6,1,	//L5 21
+	DEGREE_A5,8, DEGREE_B5,8, DEGREE_C6,4, DEGREE_B5,8, DEGREE_C6,8, DEGREE_D6,4,	//22
+	DEGREE_C6,-4, DEGREE_G5,8, DEGREE_G5,2,	//23
+	DEGREE_F6,4, DEGREE_E6,4, DEGREE_D6,4, DEGREE_C6,4,	//24
+	DEGREE_E6,-2, DEGREE_A5,8, DEGREE_B5,8,	//25
+	DEGREE_C6,-4, DEGREE_B5,8, DEGREE_C6,4, DEGREE_E6,4,	//26
+	DEGREE_B5,-2, DEGREE_E5,4,	//L6 27
+	DEGREE_A5,-4, DEGREE_G5,8, DEGREE_A5,4, DEGREE_C6,4,	//28
+	DEGREE_G5,-2, DEGREE_E5,4,	//29
+	DEGREE_F4,4, DEGREE_C6,8, DEGREE_B5,-4, DEGREE_C6,4,	//30
+	DEGREE_D6,4, DEGREE_E6,8, DEGREE_C6,2,	//31
+	DEGREE_C6,8, DEGREE_B5,8, DEGREE_A5,4, DEGREE_B5,4, DEGREE_GR5,4,	//32
+	DEGREE_A5,1,	//33
+};
 /*----------------------------------------------------------------------------
  * Application main thread
  *---------------------------------------------------------------------------*/
@@ -205,11 +274,11 @@ int melody2[]={
  osSemaphoreId_t mySem;
  uint8_t volatile rx_data ;
  osThreadId_t  forward_id, backward_id, left_id, right_id, stop_id,  
-							 LED_moving_id, LED_stopped_id, connect_buzzer_id,
+							 LED_moving_id, LED_stopped_id, connect_buzzer_id, end_buzzer_id,
 							front_LED_blinking_id, running_buzzer_id, control_id;
  int current_note1 = 0;
  int current_note2 = 0;
-							
+ int current_note3 = 0;
 							
 
  
@@ -452,6 +521,40 @@ void playConnectMusic( void* argument){
 
 }
 
+void playEndMusic( void* argument){
+	while(1) {
+	osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
+	int notes = sizeof(melody3) / sizeof(melody3[0]);
+	// this calculates the duration of a whole note in ms (60s/tempo)*4 beats
+	int wholenote = (4000 * 4) / tempo;
+	int divider = 0, noteDuration = 0;
+	uint32_t period;
+		if (current_note3 <= notes){
+		// calculates the duration of each note
+		divider = melody3[current_note3 + 1];
+		if (divider > 0) {
+			// regular note, just proceed
+			noteDuration = (wholenote) / divider;
+		} else if (divider < 0) {
+		// dotted notes are represented with negative durations!!
+		noteDuration = (wholenote) / (int)fabs((float)divider);
+		noteDuration *= 1.5; // increases the duration in half for dotted notes
+		}
+		period = TO_MOD(melody3[current_note3]);
+		TPM1->MOD = period;
+		TPM1_C0V = period / 8; //12.5% duty cycle
+		osDelay(2*9*noteDuration);
+		TPM1->MOD = 0;
+		TPM1_C0V = 0;
+		osDelay(10*noteDuration);
+		current_note3 += 2;
+		}
+		else current_note3 = 0;
+	}
+
+}
+
+
  
  	void forward(void* argument){
 			while (1){
@@ -481,8 +584,6 @@ void playConnectMusic( void* argument){
 			PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
 			PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
 		}
-		
-		
 	}
 	
 	void turnLeft(void* argument){
@@ -570,7 +671,6 @@ void LED_moving (void *argument) {
 		
 		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6)  & ~MASK(front_LED8));
 		PTB->PDOR |= MASK(front_LED7);
-		PTB->PDOR |= MASK(rear_LED);
 		osDelay(500);
 		PTB->PDOR &= ~MASK(rear_LED);
 		
@@ -628,36 +728,54 @@ void front_LED_blinking(void *argument) {
 				osThreadFlagsSet(connect_buzzer_id,0x0001);
 			}
 			if(rx_data == 2){
+				TPM2_C1V = 7000;
+				TPM2_C0V = 7000;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
 				
-				//PTD->PDOR &= ~MASK (BLUE_LED);
-				osThreadFlagsSet(forward_id,0x0001);
 				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 3){
-				osThreadFlagsSet(backward_id,0x0001);
+				TPM2_C1V = 500;
+				TPM2_C0V = 500;
+				PTA->PDOR |= (MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+				
 				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 4){
-				osThreadFlagsSet(left_id,0x0001);
+				TPM2_C1V = 7000;
+				TPM2_C0V = 500;
+				PTA->PDOR &= ~MASK(MOTOR_CONTORL_RIGHT_backward);
+				PTA->PDOR |= MASK(MOTOR_CONTORL_LEFT_backward);
+				
 				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 5){
-				osThreadFlagsSet(right_id,0x0001);
+				TPM2_C1V = 500;
+				TPM2_C0V = 7000;
+				PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
+				PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
+				
 				osThreadFlagsSet(LED_moving_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 6){
-				//PTD->PDOR |= MASK (BLUE_LED);
-				osThreadFlagsSet(stop_id,0x0001);
+				TPM2_C1V = 0;
+				TPM2_C0V = 0;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));	
+				
 				osThreadFlagsSet(LED_stopped_id,0x0001);
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 7){
-				osThreadFlagsSet(stop_id,0x0001);
+				TPM2_C1V = 0;
+				TPM2_C0V = 0;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));	
 				led_off();
+				
+				osThreadFlagsSet(end_buzzer_id, 0x0001);
 			}
 		}
 }
@@ -675,19 +793,20 @@ int main (void) {
 	led_off();
  
   osKernelInitialize();                 // Initialize CMSIS-RTOS
-	front_LED_blinking_id = osThreadNew(front_LED_blinking, NULL, NULL);
-  control_id = osThreadNew(getMove, NULL, NULL);   
-	forward_id = osThreadNew(forward,NULL,NULL);
-	backward_id = osThreadNew(backward,NULL,NULL);
-	left_id = osThreadNew(turnLeft,NULL,NULL);
-	right_id = osThreadNew(turnRight,NULL,NULL);
-	stop_id = osThreadNew(stop,NULL,NULL);
 	
+  control_id = osThreadNew(getMove, NULL, NULL);   
+	//forward_id = osThreadNew(forward,NULL,NULL);
+	//backward_id = osThreadNew(backward,NULL,NULL);
+	//left_id = osThreadNew(turnLeft,NULL,NULL);
+	//right_id = osThreadNew(turnRight,NULL,NULL);
+	//stop_id = osThreadNew(stop,NULL,NULL);
+	
+	front_LED_blinking_id = osThreadNew(front_LED_blinking, NULL, NULL);
   LED_stopped_id = osThreadNew(LED_stopped, NULL, NULL);
   LED_moving_id = osThreadNew(LED_moving, NULL, NULL);
 	running_buzzer_id = osThreadNew(playRunningMusic,NULL, NULL);
 	connect_buzzer_id = osThreadNew(playConnectMusic,NULL, NULL);
-	
+	end_buzzer_id = osThreadNew(playEndMusic,NULL, NULL);
   osKernelStart();                      // Start thread execution
   for (;;) {}
 }
