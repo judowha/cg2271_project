@@ -26,6 +26,14 @@
 #define front_LED8 3
 #define front_blinking_LED 1
 
+//self-drivering
+#define trigger 12 //ptc12
+#define echo 13 //ptc13
+
+int volatile counter;
+int volatile wait_delay;
+int volatile duration = 10000;
+
 //sound
 #define buzzer 12
 #define DEGREE_CNT 25	//USED?
@@ -272,14 +280,15 @@ int melody3[]={
  *---------------------------------------------------------------------------*/
  
  osSemaphoreId_t mySem;
- uint8_t volatile rx_data ;
- osThreadId_t  forward_id, backward_id, left_id, right_id, stop_id,  
+ uint8_t volatile rx_data=10 ;
+ osThreadId_t  forward_id, backward_id, left_id, right_id, stop_id,self_driving_id,  
 							 LED_moving_id, LED_stopped_id, connect_buzzer_id, end_buzzer_id,
 							front_LED_blinking_id, running_buzzer_id, control_id;
  int current_note1 = 0;
  int current_note2 = 0;
  int current_note3 = 0;
-							
+ int current_front_led = 1;
+ int rear_led_status = 1;
 
  
  void initUART2(uint32_t baud_rate)
@@ -432,6 +441,80 @@ void initPWM(void){
  }
  
  
+ void init_pit(){
+	SIM->SCGC5 |= SIM_SCGC5_PORTC_MASK;
+	PORTC->PCR[trigger] &= ~PORT_PCR_MUX_MASK;
+	PORTC->PCR[trigger] |= PORT_PCR_MUX(1);
+	PORTC->PCR[echo] &= ~PORT_PCR_MUX_MASK;
+	PORTC->PCR[echo] |= PORT_PCR_MUX(1);
+	
+	PTC->PDDR |= MASK(trigger);
+	PTC->PDDR &= ~MASK(echo);
+	
+	
+	SIM->SCGC6 |= SIM_SCGC6_PIT_MASK;
+	PIT->MCR = 0;
+	
+	PIT->CHANNEL[0].LDVAL = 47;
+	PIT->CHANNEL[0].TCTRL |= PIT_TCTRL_TIE_MASK | PIT_TCTRL_TEN_MASK;
+	
+	NVIC_SetPriority(PIT_IRQn,2);
+	NVIC_ClearPendingIRQ(PIT_IRQn);
+	NVIC_EnableIRQ(PIT_IRQn);
+}
+
+void PIT_IRQHandler(){
+	if(PIT->CHANNEL[0].TFLG & PIT_TFLG_TIF_MASK){
+		PIT->CHANNEL[0].TFLG &= PIT_TFLG_TIF_MASK;
+		counter--;
+		if(counter == 0){
+			PIT->CHANNEL[0].TCTRL &= ~PIT_TCTRL_TEN_MASK;
+			wait_delay = 0;
+		}
+	}
+}
+
+int detect(void){
+	PTC->PDOR &= ~MASK(trigger);
+	wait_delay = 1;
+	counter = 2;
+	PIT->CHANNEL[0].TCTRL |= PIT_TCTRL_TEN_MASK;
+	while(wait_delay);
+	
+	PTC->PDOR |= MASK(trigger);
+	wait_delay = 1;
+	counter = 10;
+	PIT->CHANNEL[0].TCTRL |= PIT_TCTRL_TEN_MASK;
+	while(wait_delay);
+	
+	PTC->PDOR &= ~MASK(trigger);
+	
+	wait_delay = 1;
+	counter = 10000;
+	PIT->CHANNEL[0].TCTRL |= PIT_TCTRL_TEN_MASK;
+	
+	while ((PTC->PDIR & MASK(echo)) == 0){
+		if(!wait_delay){
+			duration = 200000;
+			return -1;
+		}
+	}
+	while ((PTC->PDIR & MASK(echo)) == MASK(echo)){
+		if(!wait_delay){
+			duration = 200000;
+			return -1;
+		}
+	}
+	
+	duration = 10000 - counter;
+	
+	if(duration <=400)
+		return 1;
+	else return 0;
+
+}
+
+ 
  void UART2_IRQHandler(void){
 	 NVIC_ClearPendingIRQ(UART2_IRQn);
 	 rx_data = UART2->D;
@@ -562,6 +645,7 @@ void playEndMusic( void* argument){
 				TPM2_C1V = 7000;
 				TPM2_C0V = 7000;
 				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+				osDelay(100);
 
 			}
 			
@@ -616,11 +700,17 @@ void playEndMusic( void* argument){
 void LED_stopped (void *argument) {
 	for(;;) {
 		osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
-		PTB->PDOR |= MASK(rear_LED);
-		osDelay(250);
-		PTB->PDOR &= ~MASK(rear_LED);
-		osDelay(250);
 		
+		if(rear_led_status == 1){
+			PTB->PDOR |= MASK(rear_LED);
+			rear_led_status = 0;
+			osDelay(250);
+		}
+		else if (rear_led_status == 0){
+			PTB->PDOR &= ~MASK(rear_LED);
+			rear_led_status = 1;
+			osDelay(250);
+		}
 		PTB->PDOR |= (MASK(front_LED5) | MASK(front_LED6) | MASK(front_LED7) | MASK(front_LED8));
 		PTE->PDOR |= (MASK(front_LED1) | MASK(front_LED2) | MASK(front_LED3) | MASK(front_LED4));
 		
@@ -632,52 +722,71 @@ void LED_moving (void *argument) {
 	for(;;) {
 	  osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
 		
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+		if(current_front_led == 1){
+			PTE->PDOR |= MASK(front_LED1);
+			PTE->PDOR &= (~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+			PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+			PTB->PDOR |= MASK(rear_LED);
+			current_front_led ++;
+			osDelay(500);
+		}
+		else if (current_front_led == 2){
+			PTB->PDOR &= ~MASK(rear_LED);
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED3) & ~MASK(front_LED4));
+			PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+			PTE->PDOR |= MASK(front_LED2);
+			current_front_led ++;
+			osDelay(500);
+		}
+		else if (current_front_led == 3){
+			PTB->PDOR |= MASK(rear_LED);
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED4));
+			PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+			PTE->PDOR |= MASK(front_LED3) ;
+			current_front_led ++;
+			osDelay(500);
+		}
+		else if (current_front_led == 4){
+			PTB->PDOR &= ~MASK(rear_LED);
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) );
+			PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+			PTE->PDOR |= MASK(front_LED4);
+			current_front_led ++;
+			osDelay(500);
+		}
+		else if (current_front_led == 5){
+			PTB->PDOR |= MASK(rear_LED);
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+			PTB->PDOR &= ( ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
+			PTB->PDOR |= MASK(front_LED5);
+			current_front_led ++;
+			osDelay(500);
+		}
+		else if (current_front_led == 6){
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+			PTB->PDOR &= ~MASK(rear_LED);
+			PTB->PDOR &= (~MASK(front_LED5)  & ~MASK(front_LED7) & ~MASK(front_LED8));
+			PTB->PDOR |= MASK(front_LED6);
+			current_front_led ++;
+			osDelay(500);
+		}
+		else if (current_front_led == 7){
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+			PTB->PDOR |= MASK(rear_LED);
+			PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6)  & ~MASK(front_LED8));
+			PTB->PDOR |= MASK(front_LED7);
+			current_front_led ++;
+			osDelay(500);
+		}
 		
-		PTE->PDOR |= MASK(front_LED1);
-		PTE->PDOR &= (~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTB->PDOR |= MASK(rear_LED);
-		osDelay(500);
-		
-		PTB->PDOR &= ~MASK(rear_LED);
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTE->PDOR |= MASK(front_LED2);
-		osDelay(500);
-		
-		PTB->PDOR |= MASK(rear_LED);
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED4));
-		PTE->PDOR |= MASK(front_LED3) ;
-		osDelay(500);
-		
-		PTB->PDOR &= ~MASK(rear_LED);
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) );
-		PTE->PDOR |= MASK(front_LED4);
-		osDelay(500);
-		
-		
-		PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
-		PTB->PDOR &= ( ~MASK(front_LED6) & ~MASK(front_LED7) & ~MASK(front_LED8));
-		PTB->PDOR |= MASK(front_LED5);
-		PTB->PDOR |= MASK(rear_LED);
-		osDelay(500);
-		PTB->PDOR &= ~MASK(rear_LED);
-		
-		PTB->PDOR &= (~MASK(front_LED5)  & ~MASK(front_LED7) & ~MASK(front_LED8));
-		PTB->PDOR |= MASK(front_LED6);
-		
-		osDelay(500);
-		PTB->PDOR |= MASK(rear_LED);
-		
-		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6)  & ~MASK(front_LED8));
-		PTB->PDOR |= MASK(front_LED7);
-		osDelay(500);
-		PTB->PDOR &= ~MASK(rear_LED);
-		
-		PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) );
-		PTB->PDOR |=  MASK(front_LED8);
-		osDelay(500);
-
+		else if (current_front_led == 8){
+			PTE->PDOR &= (~MASK(front_LED1) & ~MASK(front_LED2) & ~MASK(front_LED3) & ~MASK(front_LED4));
+			PTB->PDOR &= ~MASK(rear_LED);
+			PTB->PDOR &= (~MASK(front_LED5) & ~MASK(front_LED6) & ~MASK(front_LED7) );
+			PTB->PDOR |=  MASK(front_LED8);
+			current_front_led =1;
+			osDelay(500);
+		}
 
 	}
 
@@ -718,6 +827,8 @@ void front_LED_blinking(void *argument) {
 	PTB->PDOR &= ~MASK(front_LED7);
 	PTB->PDOR &= ~MASK(front_LED8);
 }
+ 
+
 
  void getMove(void *argument){
 	 	for(;;){
@@ -744,8 +855,8 @@ void front_LED_blinking(void *argument) {
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 4){
-				TPM2_C1V = 7000;
-				TPM2_C0V = 500;
+				TPM2_C1V = 3000;
+				TPM2_C0V = 4500;
 				PTA->PDOR &= ~MASK(MOTOR_CONTORL_RIGHT_backward);
 				PTA->PDOR |= MASK(MOTOR_CONTORL_LEFT_backward);
 				
@@ -753,8 +864,8 @@ void front_LED_blinking(void *argument) {
 				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 			else if (rx_data == 5){
-				TPM2_C1V = 500;
-				TPM2_C0V = 7000;
+				TPM2_C1V = 4500;
+				TPM2_C0V = 3000;
 				PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
 				PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
 				
@@ -774,13 +885,105 @@ void front_LED_blinking(void *argument) {
 				TPM2_C0V = 0;
 				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));	
 				led_off();
-				
 				osThreadFlagsSet(end_buzzer_id, 0x0001);
+			}
+			else if (rx_data == 8){
+				osThreadFlagsSet(LED_moving_id,0x0001);
+				osThreadFlagsSet(running_buzzer_id, 0x0001);
+				
+				TPM2_C1V = 7000;
+				TPM2_C0V = 7000;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+				osDelay(100);
+				
+				if(detect()){
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 500;
+					PTA->PDOR &= ~MASK(MOTOR_CONTORL_RIGHT_backward);
+					PTA->PDOR |= MASK(MOTOR_CONTORL_LEFT_backward);
+					osDelay(450);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 7000;
+					PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+					osDelay(500);
+					
+					TPM2_C1V = 500;
+					TPM2_C0V = 7000;
+					PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
+					PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
+					osDelay(500);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 7000;
+					PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+					osDelay(1000);
+					
+					TPM2_C1V = 500;
+					TPM2_C0V = 7000;
+					PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
+					PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
+					osDelay(500);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 7000;
+					PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+					osDelay(1000);
+					
+					TPM2_C1V = 500;
+					TPM2_C0V = 7000;
+					PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
+					PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
+					osDelay(500);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 7000;
+					PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+					osDelay(1000);
+					
+					TPM2_C1V = 500;
+					TPM2_C0V = 7000;
+					PTA->PDOR |= MASK(MOTOR_CONTORL_RIGHT_backward);
+					PTA->PDOR &= ~MASK(MOTOR_CONTORL_LEFT_backward);
+					osDelay(500);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 7000;
+					PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+					osDelay(550);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 500;
+					PTA->PDOR &= ~MASK(MOTOR_CONTORL_RIGHT_backward);
+					PTA->PDOR |= MASK(MOTOR_CONTORL_LEFT_backward);
+					osDelay(500);
+					
+					TPM2_C1V = 7000;
+					TPM2_C0V = 7000;
+					PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+					osDelay(2700);
+					rx_data = 7;
+				}
+			}
+			else if (rx_data == 0){
+				TPM2_C1V = 7000;
+				TPM2_C0V = 1200;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+				
+				osThreadFlagsSet(LED_moving_id,0x0001);
+				osThreadFlagsSet(running_buzzer_id, 0x0001);
+			}
+			else if (rx_data == 9){
+				TPM2_C1V = 1200;
+				TPM2_C0V = 7000;
+				PTA->PDOR &= ~(MASK(MOTOR_CONTORL_LEFT_backward) | MASK(MOTOR_CONTORL_RIGHT_backward));
+				
+				osThreadFlagsSet(LED_moving_id,0x0001);
+				osThreadFlagsSet(running_buzzer_id, 0x0001);
 			}
 		}
 }
- 
-
 
 
 int main (void) {
@@ -791,11 +994,11 @@ int main (void) {
 	initPWM();
 	initUART2(BAUD_RATE);
 	led_off();
- 
-  osKernelInitialize();                 // Initialize CMSIS-RTOS
+	init_pit();
+	osKernelInitialize();                 // Initialize CMSIS-RTOS
 	
   control_id = osThreadNew(getMove, NULL, NULL);   
-	//forward_id = osThreadNew(forward,NULL,NULL);
+	forward_id = osThreadNew(forward,NULL,NULL);
 	//backward_id = osThreadNew(backward,NULL,NULL);
 	//left_id = osThreadNew(turnLeft,NULL,NULL);
 	//right_id = osThreadNew(turnRight,NULL,NULL);
@@ -807,6 +1010,7 @@ int main (void) {
 	running_buzzer_id = osThreadNew(playRunningMusic,NULL, NULL);
 	connect_buzzer_id = osThreadNew(playConnectMusic,NULL, NULL);
 	end_buzzer_id = osThreadNew(playEndMusic,NULL, NULL);
+	//self_driving_id = osThreadNew(selfDriving,NULL,NULL);
   osKernelStart();                      // Start thread execution
   for (;;) {}
 }
