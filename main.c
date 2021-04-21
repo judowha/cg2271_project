@@ -638,7 +638,7 @@ void playEndMusic( void* argument){
 }
 
 
- 
+/* 
  	void forward(void* argument){
 			while (1){
 				osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
@@ -691,11 +691,7 @@ void playEndMusic( void* argument){
 			}
 		
 	}
-	
-	
-
-
-
+*/
 
 void LED_stopped (void *argument) {
 	for(;;) {
@@ -796,7 +792,7 @@ void LED_moving (void *argument) {
 
 
 
-void front_LED_blinking(void *argument) {
+void LED_connect(void *argument) {
 	for(;;) {
 		
 	osThreadFlagsWait(0x0001,osFlagsWaitAny,osWaitForever);
@@ -830,7 +826,7 @@ void front_LED_blinking(void *argument) {
  
 
 
- void getMove(void *argument){
+ void tBrain_move(void *argument){
 	 	for(;;){
 			
 			if (rx_data == 1){
@@ -997,14 +993,14 @@ int main (void) {
 	init_pit();
 	osKernelInitialize();                 // Initialize CMSIS-RTOS
 	
-  control_id = osThreadNew(getMove, NULL, NULL);   
-	forward_id = osThreadNew(forward,NULL,NULL);
+  control_id = osThreadNew(tBrain_move, NULL, NULL);   
+	//forward_id = osThreadNew(forward,NULL,NULL);
 	//backward_id = osThreadNew(backward,NULL,NULL);
 	//left_id = osThreadNew(turnLeft,NULL,NULL);
 	//right_id = osThreadNew(turnRight,NULL,NULL);
 	//stop_id = osThreadNew(stop,NULL,NULL);
 	
-	front_LED_blinking_id = osThreadNew(front_LED_blinking, NULL, NULL);
+	front_LED_blinking_id = osThreadNew(LED_connect, NULL, NULL);
   LED_stopped_id = osThreadNew(LED_stopped, NULL, NULL);
   LED_moving_id = osThreadNew(LED_moving, NULL, NULL);
 	running_buzzer_id = osThreadNew(playRunningMusic,NULL, NULL);
